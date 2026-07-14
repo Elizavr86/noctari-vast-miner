@@ -52,6 +52,28 @@ c = c.replace('if [[ $ARCH == "x86_64" ]];', 'if test "x$ARCH" = "xx86_64";')
 c = c.replace('CUDA_LIBS="-lcudart"', 'CUDA_LIBS="-lcudart_static -ldl -lrt"')
 c = c.replace('CUDA_LIBS="-lcudart -static-libstdc++"', 'CUDA_LIBS="-lcudart_static -ldl -lrt -static-libstdc++"')
 ca.write_text(c, encoding="utf-8")
+
+# GCC 11 rejects an array of one over-aligned legacy BLAKE2 state because
+# sizeof(blake2b_state) is not a multiple of its requested alignment.
+# Equihash is not used for Noctari Quark, but the full upstream miner still
+# compiles this translation unit. Preserve behavior by using one object and
+# passing its address explicitly.
+bx = src / "equi/blake2/blake2bx.cpp"
+b = bx.read_text(encoding="utf-8")
+old_block = """\tblake2b_state S[1];
+
+\t/* Verify parameters */"""
+new_block = """\tblake2b_state S;
+
+\t/* Verify parameters */"""
+if old_block not in b:
+    raise RuntimeError("Expected blake2b_state S[1] block was not found")
+b = b.replace(old_block, new_block, 1)
+b = b.replace("eq_blake2b_init_key(S, outlen, key, keylen)", "eq_blake2b_init_key(&S, outlen, key, keylen)", 1)
+b = b.replace("eq_blake2b_init(S, outlen)", "eq_blake2b_init(&S, outlen)", 1)
+b = b.replace("eq_blake2b_update(S, (const uint8_t *)in, inlen)", "eq_blake2b_update(&S, (const uint8_t *)in, inlen)", 1)
+b = b.replace("eq_blake2b_final(S, out, outlen)", "eq_blake2b_final(&S, out, outlen)", 1)
+bx.write_text(b, encoding="utf-8")
 PY
 
 cd "$SRC"
