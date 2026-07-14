@@ -62,7 +62,7 @@ CXXFLAGS="-O3 -fcommon -D_REENTRANT -falign-functions=16 -falign-jumps=16 -falig
 CUDA_CFLAGS="-O3 -lineinfo -D_FORCE_INLINES -Xcompiler -Wno-deprecated-declarations" \
 ./configure --with-cuda=/usr/local/cuda --with-nvml=/usr/lib
 
-make -j"$(nproc)"
+make -j1
 strip ccminer || true
 
 /usr/local/cuda/bin/cuobjdump --list-elf ./ccminer > "$OUT/cuobjdump-elf.txt"
