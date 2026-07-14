@@ -1,0 +1,69 @@
+name: Build Linux RTX 4090 sm_89 release
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - release-trigger.txt
+      - scripts/build-linux-sm89.sh
+      - .github/workflows/build-release.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: noctari-linux-sm89-release
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build in CUDA 11.8 container
+        run: |
+          docker pull nvidia/cuda:11.8.0-devel-ubuntu22.04
+          docker run --rm \
+            -v "$PWD:/workspace" \
+            -w /workspace \
+            nvidia/cuda:11.8.0-devel-ubuntu22.04 \
+            bash /workspace/scripts/build-linux-sm89.sh
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: noctari-linux-sm89
+          path: dist/
+          if-no-files-found: error
+
+      - name: Publish fixed latest release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Noctari ccminer Linux RTX 4090 sm_89
+          target_commitish: main
+          make_latest: true
+          draft: false
+          prerelease: false
+          overwrite_files: true
+          body: |
+            Portable Linux baseline for RTX 4090:
+            - ccminer 2.3.1 / Quark
+            - native Ada sm_89 cubins
+            - compute_89 PTX fallback
+            - CUDA 11.8 runtime statically linked
+            - intended for Ubuntu 22.04/24.04 Vast.ai hosts with current NVIDIA drivers
+          files: |
+            dist/noctari-ccminer-linux-sm89.tar.gz
+            dist/noctari-ccminer-linux-sm89.tar.gz.sha256
+            dist/noctari-ccminer-source-sm89.tar.gz
+            dist/noctari-ccminer-source-sm89.tar.gz.sha256
+            dist/SOURCE_PATCH.diff
+            dist/ldd.txt
+            dist/cuobjdump-elf.txt
+            dist/cuobjdump-ptx.txt
